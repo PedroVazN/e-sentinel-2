@@ -17,6 +17,8 @@ if (hasCloudinary) {
     secure: true,
   });
   console.log('[Cloudinary] Configurado');
+} else if (process.env.VERCEL) {
+  console.warn('[Cloudinary] Obrigatório na Vercel — configure CLOUDINARY_* nas variáveis de ambiente');
 } else {
   console.warn(
     '[Cloudinary] Credenciais não definidas — usando armazenamento local em /uploads como fallback'
@@ -40,9 +42,14 @@ export interface UploadedImage {
 }
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+if (!process.env.VERCEL && !fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 
 export async function uploadImage(file: Express.Multer.File): Promise<UploadedImage> {
+  if (process.env.VERCEL && !hasCloudinary) {
+    throw new Error('Cloudinary é obrigatório na Vercel. Configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY e CLOUDINARY_API_SECRET.');
+  }
   if (hasCloudinary) {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
