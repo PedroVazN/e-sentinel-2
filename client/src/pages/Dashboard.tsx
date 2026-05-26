@@ -53,7 +53,7 @@ export default function Dashboard() {
   }
 
   const days: Record<string, { date: string; entrada: number; saida: number; fabricacao: number }> = {};
-  data.movementsByDay.forEach((m) => {
+  (data.movementsByDay ?? []).forEach((m) => {
     const k = m._id.d;
     days[k] ||= { date: k, entrada: 0, saida: 0, fabricacao: 0 };
     if (m._id.type === 'entrada') days[k].entrada += m.total;
