@@ -50,7 +50,7 @@ Marque **Production**, **Preview** e **Development** para as variáveis sensíve
 
 1. Acesse [vercel.com/new](https://vercel.com/new)
 2. Importe o repositório `e-sentinel-2`
-3. **Root Directory:** deixe vazio (raiz do monorepo)
+3. **Root Directory:** deixe **vazio** (raiz do repositório — **não** use `server` nem `client`)
 4. A Vercel detecta `vercel.json` e usa:
    - **Install:** instala raiz + `server` + `client`
    - **Build:** compila API e frontend
@@ -150,6 +150,7 @@ Se quiser **frontend** e **API** em URLs diferentes:
 | Erro no upload de imagem | Configure todas as variáveis `CLOUDINARY_*` |
 | Página em branco | Veja **Deployments → Build Logs**; o build do `client` deve concluir |
 | API 404 | Confirme que `vercel.json` tem rewrite `/api/(.*)` → `/api` |
+| `ENOENT server/server/package.json` | **Settings → General → Root Directory** deve estar **vazio** (não `server`) |
 
 ---
 
