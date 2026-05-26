@@ -1,3 +1,4 @@
+import type { IncomingMessage, ServerResponse } from 'http';
 import serverless from 'serverless-http';
 import { loadEnv } from '../server/dist/loadEnv';
 import { createApp, ensureDb } from '../server/dist/app';
@@ -8,7 +9,20 @@ type ServerlessHandler = ReturnType<typeof serverless>;
 
 let handler: ServerlessHandler | null = null;
 
-export default async function vercelHandler(req: unknown, res: unknown) {
+function normalizeApiPath(req: IncomingMessage) {
+  const rawUrl = req.url || '/';
+  const [pathname, query = ''] = rawUrl.split('?');
+
+  if (pathname.startsWith('/api')) {
+    return;
+  }
+
+  const apiPath = pathname === '/' ? '/api' : `/api${pathname}`;
+  req.url = query ? `${apiPath}?${query}` : apiPath;
+}
+
+export default async function vercelHandler(req: IncomingMessage, res: ServerResponse) {
+  normalizeApiPath(req);
   await ensureDb();
 
   if (!handler) {
@@ -22,6 +36,5 @@ export default async function vercelHandler(req: unknown, res: unknown) {
     });
   }
 
-  return handler(req as Parameters<ServerlessHandler>[0], res as Parameters<ServerlessHandler>[1]);
+  return handler(req, res);
 }
-

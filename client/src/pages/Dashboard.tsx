@@ -36,14 +36,41 @@ import { GridSkeleton } from '@/components/ui/Skeleton';
 import { formatCurrency, formatNumber, formatDateTime } from '@/lib/utils';
 import { CHART } from '@/lib/chartTheme';
 
+const emptyDashboard: DashboardData = {
+  totals: {
+    products: 0,
+    categories: 0,
+    stockUnits: 0,
+    stockValue: 0,
+    stockCost: 0,
+    lowStock: 0,
+    outOfStock: 0,
+  },
+  recentMovements: [],
+  recentManufacturings: [],
+  topProducts: [],
+  movementsByDay: [],
+  manufacturingByDay: [],
+  productsByCategory: [],
+};
+
+function isDashboardData(value: unknown): value is DashboardData {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'totals' in value &&
+    typeof (value as DashboardData).totals === 'object'
+  );
+}
+
 export default function Dashboard() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['dashboard'],
     queryFn: async () => (await api.get<DashboardData>('/dashboard')).data,
     refetchInterval: 30_000,
   });
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return (
       <div className="space-y-8">
         <div className="skeleton h-20 w-full max-w-lg rounded-2xl" />
@@ -52,8 +79,24 @@ export default function Dashboard() {
     );
   }
 
+  if (isError || !isDashboardData(data)) {
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          badge="Intelligence Dashboard"
+          title="Visão Executiva"
+          subtitle="Não foi possível carregar os dados do dashboard."
+        />
+        <GlassCard className="p-6 text-sm text-slate-300">
+          Verifique se a API está online em <code className="text-neon-cyan">/api/health</code> e se as variáveis
+          <code className="text-neon-cyan"> MONGODB_URI</code> e Cloudinary estão configuradas na Vercel.
+        </GlassCard>
+      </div>
+    );
+  }
+
   const days: Record<string, { date: string; entrada: number; saida: number; fabricacao: number }> = {};
-  (data.movementsByDay ?? []).forEach((m) => {
+  data.movementsByDay.forEach((m) => {
     const k = m._id.d;
     days[k] ||= { date: k, entrada: 0, saida: 0, fabricacao: 0 };
     if (m._id.type === 'entrada') days[k].entrada += m.total;
@@ -129,14 +172,14 @@ export default function Dashboard() {
         <FadeIn delay={0.15}>
           <GlassCard>
             <GlassCardHeader title="Por Categoria" subtitle="Distribuição do catálogo" />
-            {data.productsByCategory.length === 0 ? (
+            {(data.productsByCategory ?? emptyDashboard.productsByCategory).length === 0 ? (
               <div className="h-52 grid place-items-center text-sm text-slate-500">Sem dados</div>
             ) : (
               <>
                 <ResponsiveContainer width="100%" height={180}>
                   <PieChart>
-                    <Pie data={data.productsByCategory} dataKey="count" nameKey="name" innerRadius={55} outerRadius={78} paddingAngle={3} stroke="transparent">
-                      {data.productsByCategory.map((c, i) => (
+                    <Pie data={data.productsByCategory ?? []} dataKey="count" nameKey="name" innerRadius={55} outerRadius={78} paddingAngle={3} stroke="transparent">
+                      {(data.productsByCategory ?? []).map((c, i) => (
                         <Cell key={i} fill={c.color} opacity={0.9} />
                       ))}
                     </Pie>
@@ -144,7 +187,7 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="space-y-2 mt-3 max-h-36 overflow-y-auto">
-                  {data.productsByCategory.map((c) => (
+                  {(data.productsByCategory ?? []).map((c) => (
                     <div key={c.categoryId || c.name} className="flex items-center justify-between text-sm py-1.5 px-2 rounded-lg hover:bg-white/[0.03]">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-glow-sm" style={{ background: c.color }} />
@@ -173,10 +216,10 @@ export default function Dashboard() {
               }
             />
             <div className="space-y-1">
-              {data.recentMovements.length === 0 ? (
+              {(data.recentMovements ?? []).length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-10">Nenhuma movimentação</p>
               ) : (
-                data.recentMovements.map((m, i) => {
+                (data.recentMovements ?? []).map((m, i) => {
                   const product = typeof m.product === 'object' ? m.product : null;
                   const isIn = m.type === 'entrada' || m.type === 'fabricacao';
                   return (
@@ -218,10 +261,10 @@ export default function Dashboard() {
               }
             />
             <div className="space-y-1">
-              {data.recentManufacturings.length === 0 ? (
+              {(data.recentManufacturings ?? []).length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-10">Nenhuma fabricação</p>
               ) : (
-                data.recentManufacturings.map((r, i) => {
+                (data.recentManufacturings ?? []).map((r, i) => {
                   const product = typeof r.product === 'object' ? r.product : null;
                   return (
                     <motion.div
@@ -251,12 +294,12 @@ export default function Dashboard() {
         </FadeIn>
       </div>
 
-      {data.topProducts.length > 0 && (
+      {(data.topProducts ?? []).length > 0 && (
         <FadeIn delay={0.3}>
           <GlassCard>
             <GlassCardHeader title="Top Performance" subtitle="Produtos com maior volume em estoque" action={<Sparkles className="w-4 h-4 text-neon-violet" />} />
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {data.topProducts.map((p, i) => (
+              {(data.topProducts ?? []).map((p, i) => (
                 <motion.div
                   key={p._id}
                   whileHover={{ y: -4 }}
