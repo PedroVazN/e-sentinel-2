@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Search, Download, Image as ImageIcon, TrendingUp } from 'lucide-react';
 import { api } from '@/lib/api';
+import { apiUrl } from '@/lib/apiBase';
 import { Category, Product, Paginated } from '@/types';
 import EmptyState from '@/components/EmptyState';
 import { formatCurrency } from '@/lib/utils';
@@ -100,7 +101,7 @@ export default function PriceList() {
             </option>
           ))}
         </select>
-        <a href="/api/reports/prices" download className="btn-primary">
+        <a href={apiUrl('/reports/prices')} download className="btn-primary">
           <Download className="w-4 h-4" /> Exportar
         </a>
       </div>

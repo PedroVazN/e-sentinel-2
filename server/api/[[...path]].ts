@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import serverless from 'serverless-http';
-import { loadEnv } from '../server/dist/loadEnv';
-import { createApp, ensureDb } from '../server/dist/app';
+import { loadEnv } from '../dist/loadEnv';
+import { createApp, ensureDb } from '../dist/app';
 
 loadEnv();
 

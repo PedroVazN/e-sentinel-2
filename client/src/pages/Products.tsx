@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
+import { apiUrl } from '@/lib/apiBase';
 import { Category, Product, Paginated, ProductImage } from '@/types';
 import Modal from '@/components/Modal';
 import EmptyState from '@/components/EmptyState';
@@ -577,7 +578,7 @@ export default function Products() {
             </ul>
           </div>
           <a
-            href="/api/products/export/template"
+            href={apiUrl('/products/export/template')}
             download
             className="btn-secondary w-full"
           >

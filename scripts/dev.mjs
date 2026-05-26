@@ -90,7 +90,7 @@ execSync('npm run build --prefix server', { stdio: 'inherit' });
 
 console.log('\n🚀 Iniciando sistema...\n');
 const server = spawn('node', ['server/dist/index.js'], {
-  env: { ...process.env, NODE_ENV: 'production' },
+  env: { ...process.env, NODE_ENV: 'production', SERVE_CLIENT: 'true' },
   stdio: 'inherit',
   shell: false,
   cwd: process.cwd(),

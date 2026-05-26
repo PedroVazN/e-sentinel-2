@@ -20,6 +20,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { api } from '@/lib/api';
+import { apiUrl } from '@/lib/apiBase';
 import { DashboardData, Paginated, Product } from '@/types';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 
@@ -50,28 +51,28 @@ export default function Reports() {
       description: 'Snapshot completo dos produtos e quantidades',
       icon: Boxes,
       color: 'from-emerald-500 to-emerald-700',
-      url: '/api/reports/stock',
+      url: apiUrl('/reports/stock'),
     },
     {
       title: 'Movimentações',
       description: 'Entradas, saídas e ajustes no período',
       icon: ArrowDownUp,
       color: 'from-sky-500 to-cyan-600',
-      url: `/api/reports/movements?from=${from}&to=${to}`,
+      url: apiUrl(`/reports/movements?from=${from}&to=${to}`),
     },
     {
       title: 'Fabricação',
       description: 'Lotes produzidos com lote, validade e custo',
       icon: Factory,
       color: 'from-corp-600 to-corp-700',
-      url: `/api/reports/manufacturing?from=${from}&to=${to}`,
+      url: apiUrl(`/reports/manufacturing?from=${from}&to=${to}`),
     },
     {
       title: 'Tabela de Preços',
       description: 'Custo, preço, margem e estoque',
       icon: CircleDollarSign,
       color: 'from-amber-500 to-orange-600',
-      url: '/api/reports/prices',
+      url: apiUrl('/reports/prices'),
     },
   ];
 

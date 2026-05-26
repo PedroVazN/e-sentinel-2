@@ -27,6 +27,7 @@ import {
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
+import { apiUrl } from '@/lib/apiBase';
 import { DashboardData } from '@/types';
 import KpiCard from '@/components/ui/KpiCard';
 import { AnimatedPage, FadeIn } from '@/components/ui/motion';
@@ -88,8 +89,11 @@ export default function Dashboard() {
           subtitle="Não foi possível carregar os dados do dashboard."
         />
         <GlassCard className="p-6 text-sm text-slate-300">
-          Verifique se a API está online em <code className="text-neon-cyan">/api/health</code> e se as variáveis
-          <code className="text-neon-cyan"> MONGODB_URI</code> e Cloudinary estão configuradas na Vercel.
+          Verifique se a API está online em{' '}
+          <a href={apiUrl('/health')} className="text-neon-cyan underline" target="_blank" rel="noreferrer">
+            {apiUrl('/health')}
+          </a>{' '}
+          e se a variável <code className="text-neon-cyan">VITE_API_URL</code> aponta para o backend.
         </GlassCard>
       </div>
     );

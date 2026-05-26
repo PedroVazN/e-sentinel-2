@@ -12,14 +12,17 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
-const app = createApp({ serveStatic: true });
+const serveClient = process.env.SERVE_CLIENT === 'true';
+const app = createApp({ serveStatic: serveClient });
 
 async function bootstrap() {
   try {
     await ensureDb();
     const server = app.listen(PORT, () => {
-      console.log(`\n🚀 Sistema rodando em http://localhost:${PORT}`);
-      console.log(`   API Health: http://localhost:${PORT}/api/health\n`);
+      console.log(`\n🚀 API rodando em http://localhost:${PORT}`);
+      console.log(`   Health: http://localhost:${PORT}/api/health`);
+      if (serveClient) console.log(`   Frontend: http://localhost:${PORT}\n`);
+      else console.log(`   (Somente API — frontend separado em client/)\n`);
     });
     server.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EADDRINUSE') {

@@ -1,5 +1,0 @@
-server/.env
-.env
-uploads
-**/node_modules
-.git
