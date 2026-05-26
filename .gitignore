@@ -1,0 +1,30 @@
+# Dependências
+node_modules/
+
+# Build
+client/dist/
+server/dist/
+
+# Ambiente (NUNCA subir credenciais)
+.env
+.env.local
+.env.*.local
+server/.env
+client/.env
+
+# Uploads locais
+server/uploads/*
+!server/uploads/.gitkeep
+
+# Logs e cache
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.tsbuildinfo
+
+# Temporários
+*.tmp
+*.temp

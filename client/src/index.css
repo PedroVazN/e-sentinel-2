@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Plus Jakarta Sans', Inter, system-ui, sans-serif;
+    @apply antialiased scroll-smooth;
+  }
+  body {
+    @apply bg-void text-slate-300 overflow-x-hidden;
+    background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37, 99, 235, 0.12), transparent);
+  }
+  ::selection {
+    @apply bg-corp-600/40 text-white;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full hover:bg-white/20;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.08];
+  }
+  .glass-strong {
+    @apply bg-void-100/80 backdrop-blur-2xl border border-white/[0.1];
+  }
+  .card {
+    @apply glass rounded-2xl shadow-card;
+  }
+  .card-hover {
+    @apply glass rounded-2xl shadow-card transition-all duration-300 hover:border-white/[0.15] hover:shadow-glow-sm hover:-translate-y-0.5;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none text-white shadow-glow-sm hover:shadow-glow hover:brightness-110;
+    background-image: linear-gradient(135deg, #2563eb 0%, #0891b2 100%);
+  }
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed glass text-slate-200 hover:bg-white/[0.06] hover:border-white/[0.15];
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 text-slate-400 hover:text-white hover:bg-white/[0.05];
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20;
+  }
+  .input {
+    @apply w-full px-4 py-2.5 rounded-xl glass text-sm text-slate-200 placeholder:text-slate-500 outline-none transition-all duration-200 focus:border-corp-500/50 focus:ring-2 focus:ring-corp-500/20 focus:bg-white/[0.05];
+  }
+  .label {
+    @apply block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-widest;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+  .table-wrap {
+    @apply overflow-x-auto rounded-2xl border border-white/[0.06];
+  }
+  .table-base {
+    @apply min-w-full text-sm;
+  }
+  .table-base thead th {
+    @apply text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest px-4 py-3.5 bg-white/[0.02] border-b border-white/[0.06];
+  }
+  .table-base tbody tr {
+    @apply border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors duration-200;
+  }
+  .table-base tbody td {
+    @apply px-4 py-3.5 text-slate-300;
+  }
+  .neon-text {
+    background-image: linear-gradient(135deg, #38bdf8 0%, #6366f1 50%, #a78bfa 100%);
+    @apply bg-clip-text text-transparent;
+  }
+  .skeleton {
+    @apply relative overflow-hidden bg-white/[0.06] rounded-xl;
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite linear;
+  }
+}
