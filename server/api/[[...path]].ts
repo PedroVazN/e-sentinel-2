@@ -11,6 +11,7 @@ loadEnv();
 type ServerlessHandler = ReturnType<typeof serverless>;
 
 let handler: ServerlessHandler | null = null;
+const DB_TIMEOUT_MS = 8000;
 
 function normalizeApiPath(req: IncomingMessage) {
   const rawUrl = req.url || '/';
@@ -26,7 +27,8 @@ function normalizeApiPath(req: IncomingMessage) {
 
 export default async function vercelHandler(req: IncomingMessage, res: ServerResponse) {
   normalizeApiPath(req);
-  await ensureDb();
+  const pathname = (req.url || '').split('?')[0] || '';
+  const isHealth = pathname === '/api/health';
 
   if (!handler) {
     const app = createApp({ serveStatic: false }) as Parameters<typeof serverless>[0];
@@ -37,6 +39,27 @@ export default async function vercelHandler(req: IncomingMessage, res: ServerRes
         'application/octet-stream',
       ],
     });
+  }
+
+  if (!isHealth) {
+    try {
+      await Promise.race([
+        ensureDb(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout de conexão com banco')), DB_TIMEOUT_MS)
+        ),
+      ]);
+    } catch (error) {
+      res.statusCode = 503;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          error: 'Banco indisponível no momento',
+          detail: error instanceof Error ? error.message : 'Falha ao conectar no banco',
+        })
+      );
+      return;
+    }
   }
 
   return handler(req, res);
