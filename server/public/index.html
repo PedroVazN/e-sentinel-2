@@ -94,20 +94,21 @@
       text.textContent = 'Verificando API...';
 
       try {
-        const res = await fetch('/api/health', { cache: 'no-store' });
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch('/api/health', { cache: 'no-store', signal: controller.signal });
+        clearTimeout(t);
         const data = await res.json();
-        if (res.ok) {
-          dot.classList.add(data.db === 'connected' ? 'ok' : 'err');
-          text.textContent = data.db === 'connected'
-            ? 'API online + MongoDB conectado'
-            : 'API online — MongoDB: ' + (data.db || 'desconectado') + ' (teste /api/dashboard)';
+        if (res.ok && data.status === 'ok') {
+          dot.classList.add('ok');
+          text.textContent = 'API online — teste dados em /api/dashboard';
         } else {
           dot.classList.add('err');
           text.textContent = 'Erro API: ' + (data.error || res.status);
         }
       } catch {
         dot.classList.add('err');
-        text.textContent = 'Timeout na API — confira deploy e MONGODB_URI na Vercel';
+        text.textContent = 'Timeout 8s — Vercel Hobby limita 10s. Use Railway/Render para API ou cluster Mongo em São Paulo.';
       }
     }
 

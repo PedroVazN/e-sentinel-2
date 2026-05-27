@@ -14,6 +14,9 @@ Cada pasta tem seu próprio `package.json` e `vercel.json`.
 
 ## 1. Backend — pasta `server`
 
+> **Se der timeout 504 na Vercel:** use **Railway** ou **Render** para a API (Node contínuo).
+> Na pasta `server/` existe `railway.toml` — deploy em [railway.app](https://railway.app) com Root `server`.
+
 ### Vercel
 
 1. [vercel.com/new](https://vercel.com/new) → importe o repo

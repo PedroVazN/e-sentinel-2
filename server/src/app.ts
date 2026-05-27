@@ -38,13 +38,6 @@ export async function ensureDb(): Promise<void> {
   }
 }
 
-/** Inicia conexão em background (cold start Vercel) */
-export function warmDbConnection(): void {
-  if (!process.env.MONGODB_URI?.trim()) return;
-  if (getDbState() === 'connected') return;
-  void ensureDb().catch(() => undefined);
-}
-
 async function requireDb(_req: Request, res: Response, next: NextFunction) {
   try {
     await ensureDb();
