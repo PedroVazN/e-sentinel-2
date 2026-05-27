@@ -45,8 +45,8 @@ router.post('/', async (req, res) => {
     items?: Array<{ productId?: string; quantity?: number }>;
   };
 
-  if (!customer?.name || !customer?.phone || !customer?.email) {
-    return res.status(400).json({ error: 'Nome, telefone e e-mail são obrigatórios' });
+  if (!customer?.name || !customer?.phone) {
+    return res.status(400).json({ error: 'Nome e telefone são obrigatórios' });
   }
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Adicione ao menos um item ao pedido' });
@@ -94,7 +94,7 @@ router.post('/', async (req, res) => {
       name: customer.name.trim(),
       company: (customer.company || '').trim(),
       phone: customer.phone.trim(),
-      email: customer.email.trim(),
+      email: (customer.email || '').trim(),
       notes: (customer.notes || '').trim(),
     },
     items: orderItems,

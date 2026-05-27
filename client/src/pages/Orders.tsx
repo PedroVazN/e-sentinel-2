@@ -108,7 +108,7 @@ export default function Orders() {
                     <td className="font-semibold text-white">{order.orderNumber}</td>
                     <td>
                       <div className="font-medium">{order.customer.name}</div>
-                      <div className="text-xs text-slate-500">{order.customer.company || order.customer.email}</div>
+                      <div className="text-xs text-slate-500">{order.customer.phone || order.customer.notes || '—'}</div>
                     </td>
                     <td>{order.items.reduce((acc, item) => acc + item.quantity, 0)}</td>
                     <td className="font-semibold">{formatCurrency(order.total)}</td>
