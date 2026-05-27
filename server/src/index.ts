@@ -41,8 +41,8 @@ async function connectMongoWithRetry() {
 }
 
 if (isVercel) {
-  void ensureMongoConnection(mongoUri!).catch(() => {
-    console.error('[MongoDB] Erro ao conectar durante cold start na Vercel.');
+  void ensureMongoConnection(mongoUri!).catch((err) => {
+    console.error('[MongoDB] Cold start Vercel:', err instanceof Error ? err.message : err);
   });
 } else {
   app.listen(port, () => {

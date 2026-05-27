@@ -3,7 +3,7 @@ import fs from 'fs';
 import 'express-async-errors';
 import express, { ErrorRequestHandler, Request, Response, NextFunction, Express } from 'express';
 import morgan from 'morgan';
-import { isDbConnected } from './config/db';
+import { isDbConnected, ensureMongoConnection } from './config/db';
 import { corsMiddleware } from './config/cors';
 
 import categoriesRouter from './routes/categories';
@@ -43,11 +43,37 @@ export function createApp(options: AppOptions = {}): Express {
     });
   });
 
-  app.get('/api/health', (_req, res) => {
-    res.json({
-      status: 'ok',
+  app.get('/api/health', async (_req, res) => {
+    const uri = process.env.MONGODB_URI?.trim();
+    let dbError: string | undefined;
+
+    if (!uri) {
+      return res.status(503).json({
+        status: 'error',
+        service: 'esentinel2-api',
+        database: 'disconnected',
+        error: 'MONGODB_URI não configurada na Vercel (Settings → Environment Variables)',
+        time: new Date().toISOString(),
+      });
+    }
+
+    if (!isDbConnected()) {
+      try {
+        await ensureMongoConnection(uri);
+      } catch (err) {
+        dbError = err instanceof Error ? err.message : 'Falha na conexão MongoDB';
+      }
+    }
+
+    const connected = isDbConnected();
+    res.status(connected ? 200 : 503).json({
+      status: connected ? 'ok' : 'degraded',
       service: 'esentinel2-api',
-      database: isDbConnected() ? 'connected' : 'disconnected',
+      database: connected ? 'connected' : 'disconnected',
+      dbError,
+      hint: connected
+        ? undefined
+        : 'Atlas: Network Access 0.0.0.0/0 | Vercel: DNS_SERVERS=8.8.8.8,1.1.1.1 | URI igual ao .env local',
       time: new Date().toISOString(),
     });
   });
