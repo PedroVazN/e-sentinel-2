@@ -12,6 +12,8 @@ import stockRouter from './routes/stock';
 import manufacturingRouter from './routes/manufacturing';
 import dashboardRouter from './routes/dashboard';
 import reportsRouter from './routes/reports';
+import ordersRouter from './routes/orders';
+import catalogRouter from './routes/catalog';
 
 export interface AppOptions {
   serveStatic?: boolean;
@@ -84,6 +86,8 @@ export function createApp(options: AppOptions = {}): Express {
   app.use('/api/manufacturing', manufacturingRouter);
   app.use('/api/dashboard', dashboardRouter);
   app.use('/api/reports', reportsRouter);
+  app.use('/api/orders', ordersRouter);
+  app.use('/api/catalog', catalogRouter);
 
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'Rota da API não encontrada' });

@@ -16,6 +16,8 @@ import {
   Bell,
   Zap,
   ChevronRight,
+  ShoppingCart,
+  QrCode,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -25,6 +27,8 @@ const nav = [
   { to: '/categorias', label: 'Categorias', icon: Tags, desc: 'Organização' },
   { to: '/estoque', label: 'Estoque', icon: Boxes, desc: 'Controle total' },
   { to: '/fabricacao', label: 'Fabricação', icon: Factory, desc: 'Produção inteligente' },
+  { to: '/pedidos', label: 'Pedidos', icon: ShoppingCart, desc: 'Vendas e status' },
+  { to: '/compartilhar-catalogo', label: 'Link do Catálogo', icon: QrCode, desc: 'QR Code para clientes' },
   { to: '/precos', label: 'Tabela de Preços', icon: CircleDollarSign, desc: 'Pricing' },
   { to: '/relatorios', label: 'Relatórios', icon: FileBarChart, desc: 'Business intel' },
 ];

@@ -84,3 +84,34 @@ export interface Paginated<T> {
   page: number;
   limit: number;
 }
+
+export interface OrderItem {
+  product: string;
+  name: string;
+  sku: string;
+  unitPrice: number;
+  quantity: number;
+  subtotal: number;
+}
+
+export interface OrderCustomer {
+  name: string;
+  company: string;
+  phone: string;
+  email: string;
+  notes: string;
+}
+
+export type OrderStatus = 'pending' | 'confirmed' | 'cancelled' | 'fulfilled';
+
+export interface Order {
+  _id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  customer: OrderCustomer;
+  items: OrderItem[];
+  subtotal: number;
+  total: number;
+  createdAt: string;
+  updatedAt: string;
+}

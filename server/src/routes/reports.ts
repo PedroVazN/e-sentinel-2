@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as XLSX from 'xlsx';
+import PDFDocument from 'pdfkit';
 import { Product } from '../models/Product';
 import { StockMovement } from '../models/StockMovement';
 import { Manufacturing } from '../models/Manufacturing';
@@ -120,6 +121,71 @@ router.get('/prices', async (_req, res) => {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   );
   res.send(buf);
+});
+
+router.get('/catalog-pdf', async (_req, res) => {
+  const products = await Product.find({ active: true }).populate('category', 'name').sort('name').lean();
+  const categories = new Map<string, { name: string; items: any[] }>();
+
+  for (const product of products) {
+    const categoryName = (product.category as any)?.name || 'Sem categoria';
+    if (!categories.has(categoryName)) categories.set(categoryName, { name: categoryName, items: [] });
+    categories.get(categoryName)!.items.push(product);
+  }
+
+  const doc = new PDFDocument({ margin: 48, size: 'A4' });
+  const chunks: Buffer[] = [];
+  doc.on('data', (chunk) => chunks.push(chunk as Buffer));
+  doc.on('pageAdded', () => {
+    doc.fontSize(9).fillColor('#64748b').text(`Página ${doc.bufferedPageRange().count}`, 0, 810, {
+      align: 'center',
+    });
+  });
+
+  doc.fontSize(24).fillColor('#0f172a').text('Catálogo Comercial');
+  doc.moveDown(0.3);
+  doc.fontSize(12).fillColor('#334155').text('eSentinel • Catálogo digital de produtos');
+  doc.moveDown(0.5);
+  doc
+    .fontSize(10)
+    .fillColor('#64748b')
+    .text(`Gerado em ${new Date().toLocaleString('pt-BR')}`);
+  doc.moveDown(1.2);
+
+  doc.fontSize(13).fillColor('#0f172a').text('Sumário');
+  doc.moveDown(0.3);
+  for (const [name, group] of categories) {
+    doc.fontSize(10).fillColor('#334155').text(`${name} (${group.items.length} itens)`);
+  }
+
+  for (const [name, group] of categories) {
+    doc.addPage();
+    doc.fontSize(16).fillColor('#0f172a').text(name);
+    doc.moveDown(0.5);
+    for (const item of group.items) {
+      doc.fontSize(12).fillColor('#111827').text(item.name);
+      doc
+        .fontSize(10)
+        .fillColor('#475569')
+        .text(`SKU: ${item.sku || '-'}   |   Preço: R$ ${Number(item.price || 0).toFixed(2).replace('.', ',')}`);
+      if (item.description) {
+        doc.fontSize(9).fillColor('#64748b').text(item.description, { width: 500 });
+      }
+      doc.moveDown(0.6);
+      if (doc.y > 740) {
+        doc.addPage();
+      }
+    }
+  }
+
+  doc.end();
+
+  doc.on('end', () => {
+    const pdf = Buffer.concat(chunks);
+    res.setHeader('Content-Disposition', 'attachment; filename="catalogo-comercial.pdf"');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.send(pdf);
+  });
 });
 
 export default router;
