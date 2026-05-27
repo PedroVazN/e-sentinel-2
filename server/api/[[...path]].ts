@@ -1,7 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import serverless from 'serverless-http';
-import { loadEnv } from '../dist/loadEnv';
-import { createApp, ensureDb } from '../dist/app';
+const { loadEnv } = require('../dist/loadEnv') as { loadEnv: () => void };
+const { createApp, ensureDb } = require('../dist/app') as {
+  createApp: (options?: { serveStatic?: boolean }) => unknown;
+  ensureDb: () => Promise<void>;
+};
 
 loadEnv();
 
@@ -26,7 +29,7 @@ export default async function vercelHandler(req: IncomingMessage, res: ServerRes
   await ensureDb();
 
   if (!handler) {
-    const app = createApp({ serveStatic: false });
+    const app = createApp({ serveStatic: false }) as Parameters<typeof serverless>[0];
     handler = serverless(app, {
       binary: [
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
