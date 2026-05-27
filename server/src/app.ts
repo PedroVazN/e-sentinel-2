@@ -3,7 +3,7 @@ import fs from 'fs';
 import 'express-async-errors';
 import express, { ErrorRequestHandler, Request, Response, NextFunction, Express } from 'express';
 import morgan from 'morgan';
-import { connectDB, getDbState, withTimeout } from './config/db';
+import { connectDB, getDbState, resetDbCache } from './config/db';
 import { corsMiddleware } from './config/cors';
 
 import categoriesRouter from './routes/categories';
@@ -19,25 +19,37 @@ export interface AppOptions {
 
 let dbPromise: Promise<void> | null = null;
 
-// Vercel Pro: até 60s. Hobby: 10s (MongoDB na Vercel grátis costuma falhar — use Railway)
-const DB_TIMEOUT_MS = process.env.VERCEL ? 55000 : 25000;
-
 export async function ensureDb(): Promise<void> {
   const uri = process.env.MONGODB_URI?.trim();
   if (!uri) {
     throw new Error('MONGODB_URI não definida');
   }
 
-  if (!dbPromise) {
-    dbPromise = withTimeout(connectDB(uri).then(() => undefined), DB_TIMEOUT_MS, 'Timeout MongoDB');
-  }
-
   try {
+    if (!dbPromise) {
+      dbPromise = connectDB(uri).then(() => undefined);
+    }
     await dbPromise;
   } catch (err) {
     dbPromise = null;
+    resetDbCache();
     throw err;
   }
+}
+
+/** Na Vercel a função recebe /dashboard — normaliza para /api/dashboard */
+function vercelPathFix(req: Request, _res: Response, next: NextFunction) {
+  if (!process.env.VERCEL) return next();
+
+  const raw = req.url || '/';
+  const q = raw.indexOf('?');
+  const pathname = q >= 0 ? raw.slice(0, q) : raw;
+  const query = q >= 0 ? raw.slice(q) : '';
+
+  if (!pathname.startsWith('/api')) {
+    req.url = `/api${pathname === '/' ? '' : pathname}${query}`;
+  }
+  next();
 }
 
 async function requireDb(_req: Request, res: Response, next: NextFunction) {
@@ -48,7 +60,7 @@ async function requireDb(_req: Request, res: Response, next: NextFunction) {
     res.status(503).json({
       error: 'Banco de dados indisponível',
       detail: err instanceof Error ? err.message : 'Falha na conexão MongoDB',
-      hint: 'Atlas: Network Access 0.0.0.0/0 e cluster na região South America (sa-east-1)',
+      hint: 'Atlas: Network Access 0.0.0.0/0',
     });
   }
 }
@@ -58,6 +70,7 @@ export function createApp(options: AppOptions = {}): Express {
   const app = express();
 
   app.use(corsMiddleware());
+  app.use(vercelPathFix);
   app.use(express.json({ limit: '10mb' }));
   app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
@@ -73,19 +86,28 @@ export function createApp(options: AppOptions = {}): Express {
     res.json({
       status: 'ok',
       service: 'esentinel2-api',
-      message: 'Backend online',
       health: '/api/health',
+      dashboard: '/api/dashboard',
       time: new Date().toISOString(),
     });
   });
 
-  // Resposta instantânea — não espera MongoDB (evita 504 no health)
-  app.get('/api/health', (_req, res) => {
+  app.get('/api/health', async (_req, res) => {
+    let dbError: string | undefined;
+    if (process.env.MONGODB_URI) {
+      try {
+        await ensureDb();
+      } catch (err) {
+        dbError = err instanceof Error ? err.message : 'Falha ao conectar';
+      }
+    }
+    const db = getDbState();
     res.status(200).json({
-      status: 'ok',
+      status: db === 'connected' ? 'ok' : 'degraded',
       service: 'esentinel2-api',
-      db: getDbState(),
+      db,
       mongodbConfigured: !!process.env.MONGODB_URI,
+      dbError,
       time: new Date().toISOString(),
     });
   });
@@ -111,16 +133,12 @@ export function createApp(options: AppOptions = {}): Express {
   if (serveStatic) {
     const CLIENT_DIST = path.join(__dirname, '..', '..', 'client', 'dist');
     const indexHtml = path.join(CLIENT_DIST, 'index.html');
-
     app.use(express.static(CLIENT_DIST));
-
     app.get('*', (req, res, next) => {
       if (req.path.startsWith('/api')) return next();
       res.sendFile(indexHtml, (err) => {
         if (err) {
-          res.status(500).json({
-            error: 'Frontend não compilado. Execute: npm run build --prefix client',
-          });
+          res.status(500).json({ error: 'Frontend não compilado' });
         }
       });
     });

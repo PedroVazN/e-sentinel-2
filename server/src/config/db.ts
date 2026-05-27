@@ -1,50 +1,52 @@
 import mongoose from 'mongoose';
 
+interface MongooseCache {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
+}
+
 declare global {
   // eslint-disable-next-line no-var
-  var __mongooseConn: Promise<typeof mongoose> | undefined;
+  var mongooseCache: MongooseCache | undefined;
 }
 
-function getOptions() {
-  const onVercel = !!process.env.VERCEL;
-  return {
-    maxPoolSize: onVercel ? 1 : 10,
-    serverSelectionTimeoutMS: onVercel ? 30000 : 20000,
-    connectTimeoutMS: onVercel ? 30000 : 20000,
-    socketTimeoutMS: 45000,
-    bufferCommands: false,
-  };
-}
+const cached: MongooseCache = global.mongooseCache ?? { conn: null, promise: null };
+global.mongooseCache = cached;
 
 export async function connectDB(uri: string) {
-  if (mongoose.connection.readyState === 1) {
-    return mongoose;
+  if (cached.conn) {
+    return cached.conn;
   }
 
-  if (global.__mongooseConn) {
-    try {
-      return await global.__mongooseConn;
-    } catch {
-      global.__mongooseConn = undefined;
-      await mongoose.disconnect().catch(() => undefined);
-    }
+  if (!cached.promise) {
+    mongoose.set('strictQuery', true);
+
+    cached.promise = mongoose
+      .connect(uri, {
+        maxPoolSize: process.env.VERCEL ? 1 : 10,
+        serverSelectionTimeoutMS: 20000,
+        connectTimeoutMS: 20000,
+        socketTimeoutMS: 45000,
+        bufferCommands: false,
+      })
+      .then((m) => {
+        console.log('[MongoDB] Conectado');
+        return m;
+      })
+      .catch((err) => {
+        cached.promise = null;
+        console.error('[MongoDB] Erro:', err?.message || err);
+        throw err;
+      });
   }
 
-  mongoose.set('strictQuery', true);
+  cached.conn = await cached.promise;
+  return cached.conn;
+}
 
-  global.__mongooseConn = mongoose
-    .connect(uri, getOptions())
-    .then((m) => {
-      console.log('[MongoDB] Conectado');
-      return m;
-    })
-    .catch((err) => {
-      global.__mongooseConn = undefined;
-      console.error('[MongoDB] Erro:', err?.message || err);
-      throw err;
-    });
-
-  return global.__mongooseConn;
+export function resetDbCache() {
+  cached.conn = null;
+  cached.promise = null;
 }
 
 export function getDbState(): 'connected' | 'disconnected' | 'connecting' | 'disconnecting' {
@@ -55,13 +57,4 @@ export function getDbState(): 'connected' | 'disconnected' | 'connecting' | 'dis
     3: 'disconnecting',
   };
   return states[mongoose.connection.readyState] ?? 'disconnected';
-}
-
-export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} (${ms}ms)`)), ms)
-    ),
-  ]);
 }
