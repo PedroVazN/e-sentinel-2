@@ -9,9 +9,9 @@ function getOptions() {
   const onVercel = !!process.env.VERCEL;
   return {
     maxPoolSize: onVercel ? 1 : 10,
-    serverSelectionTimeoutMS: onVercel ? 5000 : 20000,
-    connectTimeoutMS: onVercel ? 5000 : 20000,
-    socketTimeoutMS: 20000,
+    serverSelectionTimeoutMS: onVercel ? 30000 : 20000,
+    connectTimeoutMS: onVercel ? 30000 : 20000,
+    socketTimeoutMS: 45000,
     bufferCommands: false,
   };
 }

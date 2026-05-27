@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs';
 import 'express-async-errors';
 import express, { ErrorRequestHandler, Request, Response, NextFunction, Express } from 'express';
 import morgan from 'morgan';
@@ -18,7 +19,8 @@ export interface AppOptions {
 
 let dbPromise: Promise<void> | null = null;
 
-const DB_TIMEOUT_MS = process.env.VERCEL ? 8000 : 25000;
+// Vercel Pro: até 60s. Hobby: 10s (MongoDB na Vercel grátis costuma falhar — use Railway)
+const DB_TIMEOUT_MS = process.env.VERCEL ? 55000 : 25000;
 
 export async function ensureDb(): Promise<void> {
   const uri = process.env.MONGODB_URI?.trim();
@@ -61,9 +63,13 @@ export function createApp(options: AppOptions = {}): Express {
 
   if (!process.env.VERCEL) {
     app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+    const apiPublicDir = path.join(__dirname, '..', 'public');
+    if (fs.existsSync(apiPublicDir)) {
+      app.use(express.static(apiPublicDir));
+    }
   }
 
-  app.get(['/', '/api'], (_req, res) => {
+  app.get('/api', (_req, res) => {
     res.json({
       status: 'ok',
       service: 'esentinel2-api',
