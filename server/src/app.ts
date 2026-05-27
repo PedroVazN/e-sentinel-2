@@ -48,11 +48,27 @@ export function createApp(options: AppOptions = {}): Express {
     app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
   }
 
+  app.get(['/', '/api'], (_req, res) => {
+    res.json({
+      status: 'ok',
+      service: 'esentinel2-api',
+      message: 'Backend online. Use /api/health para status detalhado.',
+      endpoints: {
+        health: '/api/health',
+        dashboard: '/api/dashboard',
+        products: '/api/products',
+        categories: '/api/categories',
+      },
+      time: new Date().toISOString(),
+    });
+  });
+
   app.get('/api/health', (_req, res) => {
     res.json({
       status: 'ok',
       service: 'esentinel2-api',
       db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      mongodbConfigured: !!process.env.MONGODB_URI,
       time: new Date().toISOString(),
     });
   });
