@@ -11,7 +11,7 @@ loadEnv();
 type ServerlessHandler = ReturnType<typeof serverless>;
 
 let handler: ServerlessHandler | null = null;
-const DB_TIMEOUT_MS = 8000;
+const DB_TIMEOUT_MS = process.env.VERCEL ? 22000 : 8000;
 
 function normalizeApiPath(req: IncomingMessage) {
   const rawUrl = req.url || '/';
@@ -33,23 +33,6 @@ function sendJson(res: ServerResponse, status: number, body: Record<string, unkn
 
 export default async function vercelHandler(req: IncomingMessage, res: ServerResponse) {
   normalizeApiPath(req);
-  const pathname = (req.url || '').split('?')[0] || '';
-  const isHealth = pathname === '/api/health';
-  const isApiRoot = pathname === '/api';
-
-  if (isHealth || isApiRoot) {
-    sendJson(res, 200, {
-      status: 'ok',
-      service: 'esentinel2-api',
-      message: isHealth
-        ? 'Health check instantâneo (sem aguardar banco).'
-        : 'Backend online. Use /api/health para status detalhado.',
-      path: pathname,
-      mongodbConfigured: !!process.env.MONGODB_URI,
-      time: new Date().toISOString(),
-    });
-    return;
-  }
 
   if (!handler) {
     const app = createApp({ serveStatic: false }) as Parameters<typeof serverless>[0];
@@ -62,17 +45,39 @@ export default async function vercelHandler(req: IncomingMessage, res: ServerRes
     });
   }
 
+  if (!process.env.MONGODB_URI) {
+    sendJson(res, 503, {
+      error: 'MONGODB_URI não configurada na Vercel',
+      hint: 'Settings → Environment Variables → MONGODB_URI',
+    });
+    return;
+  }
+
   try {
     await Promise.race([
       ensureDb(),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout de conexão com banco')), DB_TIMEOUT_MS)
+        setTimeout(() => reject(new Error('Timeout ao conectar no MongoDB (22s)')), DB_TIMEOUT_MS)
       ),
     ]);
   } catch (error) {
+    const pathname = (req.url || '').split('?')[0] || '';
+    if (pathname === '/api/health') {
+      sendJson(res, 503, {
+        status: 'degraded',
+        service: 'esentinel2-api',
+        db: 'disconnected',
+        mongodbConfigured: true,
+        dbError: error instanceof Error ? error.message : 'Falha ao conectar',
+        time: new Date().toISOString(),
+      });
+      return;
+    }
+
     sendJson(res, 503, {
       error: 'Banco indisponível no momento',
       detail: error instanceof Error ? error.message : 'Falha ao conectar no banco',
+      hint: 'Confira MongoDB Atlas: Network Access 0.0.0.0/0 e URI com senha codificada',
     });
     return;
   }

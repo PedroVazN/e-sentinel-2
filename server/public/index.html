@@ -96,12 +96,15 @@
       try {
         const res = await fetch('/api/health', { cache: 'no-store' });
         const data = await res.json();
-        if (res.ok && data.status === 'ok') {
+        if (res.ok && data.db === 'connected') {
           dot.classList.add('ok');
-          text.textContent = 'API online — ' + (data.db === 'connected' ? 'MongoDB conectado' : 'MongoDB desconectado');
+          text.textContent = 'API + MongoDB conectados';
+        } else if (data.status === 'ok' || data.mongodbConfigured) {
+          dot.classList.add('err');
+          text.textContent = 'API online, mas MongoDB OFF: ' + (data.dbError || data.db || 'desconectado');
         } else {
           dot.classList.add('err');
-          text.textContent = 'API respondeu com erro: ' + (data.error || res.status);
+          text.textContent = 'Erro: ' + (data.dbError || data.error || res.status);
         }
       } catch (err) {
         dot.classList.add('err');

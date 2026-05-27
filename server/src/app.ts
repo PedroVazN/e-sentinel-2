@@ -2,9 +2,9 @@ import path from 'path';
 import mongoose from 'mongoose';
 import 'express-async-errors';
 import express, { ErrorRequestHandler, Request, Response, NextFunction, Express } from 'express';
-import cors from 'cors';
 import morgan from 'morgan';
-import { connectDB } from './config/db';
+import { connectDB, getDbState } from './config/db';
+import { corsMiddleware } from './config/cors';
 
 import categoriesRouter from './routes/categories';
 import productsRouter from './routes/products';
@@ -25,22 +25,22 @@ export async function ensureDb(): Promise<void> {
   if (!uri) {
     throw new Error('MONGODB_URI não definida');
   }
-  if (!dbPromise) {
-    dbPromise = connectDB(uri).then(() => undefined);
+  try {
+    if (!dbPromise) {
+      dbPromise = connectDB(uri).then(() => undefined);
+    }
+    await dbPromise;
+  } catch (err) {
+    dbPromise = null;
+    throw err;
   }
-  await dbPromise;
 }
 
 export function createApp(options: AppOptions = {}): Express {
   const { serveStatic = false } = options;
   const app = express();
 
-  app.use(
-    cors({
-      origin: process.env.CLIENT_URL?.split(',') || true,
-      credentials: true,
-    })
-  );
+  app.use(corsMiddleware());
   app.use(express.json({ limit: '10mb' }));
   app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
@@ -63,20 +63,50 @@ export function createApp(options: AppOptions = {}): Express {
     });
   });
 
-  app.get('/api/health', (_req, res) => {
-    res.json({
-      status: 'ok',
+  app.get('/api/health', async (_req, res) => {
+    let db = getDbState();
+    let dbError: string | undefined;
+
+    if (process.env.MONGODB_URI && db !== 'connected') {
+      try {
+        await ensureDb();
+        db = getDbState();
+      } catch (err) {
+        dbError = err instanceof Error ? err.message : 'Falha ao conectar';
+        db = getDbState();
+      }
+    }
+
+    res.status(db === 'connected' ? 200 : 503).json({
+      status: db === 'connected' ? 'ok' : 'degraded',
       service: 'esentinel2-api',
-      db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      db,
       mongodbConfigured: !!process.env.MONGODB_URI,
+      dbError,
       time: new Date().toISOString(),
     });
   });
 
-  app.use('/api', (req: Request, res: Response, next: NextFunction) => {
+  app.use('/api', async (req: Request, res: Response, next: NextFunction) => {
+    if (req.path === '/health' || req.path === '/health/') {
+      return next();
+    }
+
+    if (mongoose.connection.readyState !== 1) {
+      try {
+        await ensureDb();
+      } catch (err) {
+        return res.status(503).json({
+          error: 'Banco de dados indisponível',
+          detail: err instanceof Error ? err.message : 'Falha na conexão MongoDB',
+        });
+      }
+    }
+
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({ error: 'Banco de dados indisponível. Tente novamente.' });
     }
+
     next();
   });
 
