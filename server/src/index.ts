@@ -1,42 +1,55 @@
-import { loadEnv } from './loadEnv';
+import dotenv from 'dotenv';
+import path from 'path';
+import dns from 'node:dns';
+import { createApp, registerDbGate } from './app';
+import { ensureMongoConnection } from './config/db';
 
-loadEnv();
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config();
 
-import { createApp, ensureDb } from './app';
+const port = Number(process.env.PORT || 4000);
+const mongoUri = process.env.MONGODB_URI?.trim();
+const isVercel = process.env.VERCEL === '1';
 
-const PORT = Number(process.env.PORT) || 4000;
-const MONGODB_URI = process.env.MONGODB_URI;
+const dnsServers = (process.env.DNS_SERVERS || '8.8.8.8,1.1.1.1')
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean);
 
-if (!MONGODB_URI) {
-  console.error('[Erro] MONGODB_URI não definida no .env');
-  process.exit(1);
+if (dnsServers.length > 0) {
+  dns.setServers(dnsServers);
+  console.log(`[DNS] Servidores: ${dnsServers.join(', ')}`);
+}
+
+if (!mongoUri) {
+  throw new Error('Defina MONGODB_URI no arquivo .env');
 }
 
 const serveClient = process.env.SERVE_CLIENT === 'true';
 const app = createApp({ serveStatic: serveClient });
 
-async function bootstrap() {
+registerDbGate(app, () => ensureMongoConnection(mongoUri!));
+
+async function connectMongoWithRetry() {
   try {
-    await ensureDb();
-    const server = app.listen(PORT, () => {
-      console.log(`\n🚀 API rodando em http://localhost:${PORT}`);
-      console.log(`   Health: http://localhost:${PORT}/api/health`);
-      if (serveClient) console.log(`   Frontend: http://localhost:${PORT}\n`);
-      else console.log(`   (Somente API — frontend separado em client/)\n`);
-    });
-    server.on('error', (err: NodeJS.ErrnoException) => {
-      if (err.code === 'EADDRINUSE') {
-        console.error(`\n[Erro] Porta ${PORT} já está em uso.`);
-        console.error('Encerre o processo anterior ou altere PORT no .env\n');
-        process.exit(1);
-      }
-      console.error('[Erro no servidor HTTP]', err);
-      process.exit(1);
-    });
-  } catch (err) {
-    console.error('[Falha na inicialização]', err);
-    process.exit(1);
+    await ensureMongoConnection(mongoUri!);
+    console.log('[MongoDB] Conectado com sucesso.');
+  } catch (error) {
+    console.error('[MongoDB] Erro ao conectar:', error);
+    setTimeout(connectMongoWithRetry, 10000);
   }
 }
 
-bootstrap();
+if (isVercel) {
+  void ensureMongoConnection(mongoUri!).catch(() => {
+    console.error('[MongoDB] Erro ao conectar durante cold start na Vercel.');
+  });
+} else {
+  app.listen(port, () => {
+    console.log(`\n🚀 API rodando em http://localhost:${port}`);
+    console.log(`   Health: http://localhost:${port}/api/health\n`);
+  });
+  void connectMongoWithRetry();
+}
+
+export default app;

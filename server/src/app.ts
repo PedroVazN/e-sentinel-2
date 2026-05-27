@@ -3,7 +3,7 @@ import fs from 'fs';
 import 'express-async-errors';
 import express, { ErrorRequestHandler, Request, Response, NextFunction, Express } from 'express';
 import morgan from 'morgan';
-import { connectDB, getDbState, resetDbCache } from './config/db';
+import { isDbConnected } from './config/db';
 import { corsMiddleware } from './config/cors';
 
 import categoriesRouter from './routes/categories';
@@ -17,60 +17,11 @@ export interface AppOptions {
   serveStatic?: boolean;
 }
 
-let dbPromise: Promise<void> | null = null;
-
-export async function ensureDb(): Promise<void> {
-  const uri = process.env.MONGODB_URI?.trim();
-  if (!uri) {
-    throw new Error('MONGODB_URI não definida');
-  }
-
-  try {
-    if (!dbPromise) {
-      dbPromise = connectDB(uri).then(() => undefined);
-    }
-    await dbPromise;
-  } catch (err) {
-    dbPromise = null;
-    resetDbCache();
-    throw err;
-  }
-}
-
-/** Na Vercel a função recebe /dashboard — normaliza para /api/dashboard */
-function vercelPathFix(req: Request, _res: Response, next: NextFunction) {
-  if (!process.env.VERCEL) return next();
-
-  const raw = req.url || '/';
-  const q = raw.indexOf('?');
-  const pathname = q >= 0 ? raw.slice(0, q) : raw;
-  const query = q >= 0 ? raw.slice(q) : '';
-
-  if (!pathname.startsWith('/api')) {
-    req.url = `/api${pathname === '/' ? '' : pathname}${query}`;
-  }
-  next();
-}
-
-async function requireDb(_req: Request, res: Response, next: NextFunction) {
-  try {
-    await ensureDb();
-    next();
-  } catch (err) {
-    res.status(503).json({
-      error: 'Banco de dados indisponível',
-      detail: err instanceof Error ? err.message : 'Falha na conexão MongoDB',
-      hint: 'Atlas: Network Access 0.0.0.0/0',
-    });
-  }
-}
-
 export function createApp(options: AppOptions = {}): Express {
   const { serveStatic = false } = options;
   const app = express();
 
   app.use(corsMiddleware());
-  app.use(vercelPathFix);
   app.use(express.json({ limit: '10mb' }));
   app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
@@ -92,32 +43,21 @@ export function createApp(options: AppOptions = {}): Express {
     });
   });
 
-  app.get('/api/health', async (_req, res) => {
-    let dbError: string | undefined;
-    if (process.env.MONGODB_URI) {
-      try {
-        await ensureDb();
-      } catch (err) {
-        dbError = err instanceof Error ? err.message : 'Falha ao conectar';
-      }
-    }
-    const db = getDbState();
-    res.status(200).json({
-      status: db === 'connected' ? 'ok' : 'degraded',
+  app.get('/api/health', (_req, res) => {
+    res.json({
+      status: 'ok',
       service: 'esentinel2-api',
-      db,
-      mongodbConfigured: !!process.env.MONGODB_URI,
-      dbError,
+      database: isDbConnected() ? 'connected' : 'disconnected',
       time: new Date().toISOString(),
     });
   });
 
-  app.use('/api/categories', requireDb, categoriesRouter);
-  app.use('/api/products', requireDb, productsRouter);
-  app.use('/api/stock', requireDb, stockRouter);
-  app.use('/api/manufacturing', requireDb, manufacturingRouter);
-  app.use('/api/dashboard', requireDb, dashboardRouter);
-  app.use('/api/reports', requireDb, reportsRouter);
+  app.use('/api/categories', categoriesRouter);
+  app.use('/api/products', productsRouter);
+  app.use('/api/stock', stockRouter);
+  app.use('/api/manufacturing', manufacturingRouter);
+  app.use('/api/dashboard', dashboardRouter);
+  app.use('/api/reports', reportsRouter);
 
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'Rota da API não encontrada' });
@@ -137,12 +77,35 @@ export function createApp(options: AppOptions = {}): Express {
     app.get('*', (req, res, next) => {
       if (req.path.startsWith('/api')) return next();
       res.sendFile(indexHtml, (err) => {
-        if (err) {
-          res.status(500).json({ error: 'Frontend não compilado' });
-        }
+        if (err) res.status(500).json({ error: 'Frontend não compilado' });
       });
     });
   }
 
   return app;
+}
+
+/** Middleware de banco — igual ERP-Dantas */
+export function registerDbGate(app: Express, ensureMongo: () => Promise<unknown>) {
+  app.use('/api', async (req: Request, res: Response, next: NextFunction) => {
+    if (req.path === '/health' || req.path === '/health/') {
+      return next();
+    }
+
+    if (!isDbConnected()) {
+      try {
+        await ensureMongo();
+      } catch {
+        // tratado abaixo
+      }
+    }
+
+    if (!isDbConnected()) {
+      return res.status(503).json({
+        error: 'Banco de dados indisponível. Verifique MONGODB_URI e Network Access 0.0.0.0/0 no Atlas.',
+      });
+    }
+
+    next();
+  });
 }

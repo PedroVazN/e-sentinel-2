@@ -1,11 +1,11 @@
 import 'dotenv/config';
-import { connectDB } from './config/db';
+import { ensureMongoConnection } from './config/db';
 import { Category } from './models/Category';
 import { Product } from './models/Product';
 import { StockMovement } from './models/StockMovement';
 
 async function seed() {
-  await connectDB(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/esentinel2');
+  await ensureMongoConnection(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/esentinel2');
 
   await Promise.all([Category.deleteMany({}), Product.deleteMany({}), StockMovement.deleteMany({})]);
 
