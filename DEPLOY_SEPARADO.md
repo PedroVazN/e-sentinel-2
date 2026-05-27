@@ -21,6 +21,8 @@ Cada pasta tem seu próprio `package.json` e `vercel.json`.
 3. **Root Directory:** `server`
 4. Deploy
 
+> Se a Vercel reclamar `No Output Directory named "public"`, este repo já inclui `server/public/` para evitar esse erro. Mesmo assim, **o ideal** é deixar *Output Directory* vazio no painel e usar preset **Other**.
+
 ### Variáveis de ambiente (backend)
 
 | Variável | Obrigatória |
