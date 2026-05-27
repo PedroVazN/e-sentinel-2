@@ -2,15 +2,24 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import serverless from 'serverless-http';
 
 const { loadEnv } = require('../dist/loadEnv') as { loadEnv: () => void };
-const { createApp } = require('../dist/app') as {
+const { createApp, warmDbConnection } = require('../dist/app') as {
   createApp: (options?: { serveStatic?: boolean }) => unknown;
+  warmDbConnection: () => void;
 };
 
 loadEnv();
 
+// Aumenta limite da função (Pro: até 60s; Hobby: máx 10s)
+export const config = {
+  maxDuration: 60,
+};
+
 type ServerlessHandler = ReturnType<typeof serverless>;
 
 let handler: ServerlessHandler | null = null;
+
+// Começa a conectar no MongoDB assim que a função sobe (cold start)
+warmDbConnection();
 
 function normalizeApiPath(req: IncomingMessage) {
   const rawUrl = req.url || '/';

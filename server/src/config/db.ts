@@ -5,6 +5,17 @@ declare global {
   var __mongooseConn: Promise<typeof mongoose> | undefined;
 }
 
+function getOptions() {
+  const onVercel = !!process.env.VERCEL;
+  return {
+    maxPoolSize: onVercel ? 1 : 10,
+    serverSelectionTimeoutMS: onVercel ? 5000 : 20000,
+    connectTimeoutMS: onVercel ? 5000 : 20000,
+    socketTimeoutMS: 20000,
+    bufferCommands: false,
+  };
+}
+
 export async function connectDB(uri: string) {
   if (mongoose.connection.readyState === 1) {
     return mongoose;
@@ -21,16 +32,8 @@ export async function connectDB(uri: string) {
 
   mongoose.set('strictQuery', true);
 
-  const opts = {
-    serverSelectionTimeoutMS: 25000,
-    connectTimeoutMS: 25000,
-    socketTimeoutMS: 45000,
-    maxPoolSize: 10,
-    bufferCommands: false,
-  };
-
   global.__mongooseConn = mongoose
-    .connect(uri, opts)
+    .connect(uri, getOptions())
     .then((m) => {
       console.log('[MongoDB] Conectado');
       return m;
@@ -52,4 +55,13 @@ export function getDbState(): 'connected' | 'disconnected' | 'connecting' | 'dis
     3: 'disconnecting',
   };
   return states[mongoose.connection.readyState] ?? 'disconnected';
+}
+
+export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} (${ms}ms)`)), ms)
+    ),
+  ]);
 }

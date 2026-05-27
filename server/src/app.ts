@@ -1,9 +1,8 @@
 import path from 'path';
-import mongoose from 'mongoose';
 import 'express-async-errors';
 import express, { ErrorRequestHandler, Request, Response, NextFunction, Express } from 'express';
 import morgan from 'morgan';
-import { connectDB, getDbState } from './config/db';
+import { connectDB, getDbState, withTimeout } from './config/db';
 import { corsMiddleware } from './config/cors';
 
 import categoriesRouter from './routes/categories';
@@ -19,21 +18,31 @@ export interface AppOptions {
 
 let dbPromise: Promise<void> | null = null;
 
+const DB_TIMEOUT_MS = process.env.VERCEL ? 8000 : 25000;
+
 export async function ensureDb(): Promise<void> {
   const uri = process.env.MONGODB_URI?.trim();
   if (!uri) {
     throw new Error('MONGODB_URI não definida');
   }
 
+  if (!dbPromise) {
+    dbPromise = withTimeout(connectDB(uri).then(() => undefined), DB_TIMEOUT_MS, 'Timeout MongoDB');
+  }
+
   try {
-    if (!dbPromise) {
-      dbPromise = connectDB(uri).then(() => undefined);
-    }
     await dbPromise;
   } catch (err) {
     dbPromise = null;
     throw err;
   }
+}
+
+/** Inicia conexão em background (cold start Vercel) */
+export function warmDbConnection(): void {
+  if (!process.env.MONGODB_URI?.trim()) return;
+  if (getDbState() === 'connected') return;
+  void ensureDb().catch(() => undefined);
 }
 
 async function requireDb(_req: Request, res: Response, next: NextFunction) {
@@ -44,6 +53,7 @@ async function requireDb(_req: Request, res: Response, next: NextFunction) {
     res.status(503).json({
       error: 'Banco de dados indisponível',
       detail: err instanceof Error ? err.message : 'Falha na conexão MongoDB',
+      hint: 'Atlas: Network Access 0.0.0.0/0 e cluster na região South America (sa-east-1)',
     });
   }
 }
@@ -70,24 +80,13 @@ export function createApp(options: AppOptions = {}): Express {
     });
   });
 
-  app.get('/api/health', async (_req, res) => {
-    let dbError: string | undefined;
-
-    if (process.env.MONGODB_URI) {
-      try {
-        await ensureDb();
-      } catch (err) {
-        dbError = err instanceof Error ? err.message : 'Falha ao conectar';
-      }
-    }
-
-    const db = getDbState();
+  // Resposta instantânea — não espera MongoDB (evita 504 no health)
+  app.get('/api/health', (_req, res) => {
     res.status(200).json({
-      status: db === 'connected' ? 'ok' : 'degraded',
+      status: 'ok',
       service: 'esentinel2-api',
-      db,
+      db: getDbState(),
       mongodbConfigured: !!process.env.MONGODB_URI,
-      dbError,
       time: new Date().toISOString(),
     });
   });
@@ -105,9 +104,6 @@ export function createApp(options: AppOptions = {}): Express {
 
   const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     console.error('[Erro API]', err);
-    if (err.message?.includes('CORS')) {
-      return res.status(403).json({ error: err.message });
-    }
     const status = err.status || err.statusCode || 500;
     res.status(status).json({ error: err.message || 'Erro interno do servidor' });
   };
