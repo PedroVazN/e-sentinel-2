@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import 'express-async-errors';
-import express, { ErrorRequestHandler, Request, Response, NextFunction, Express } from 'express';
+import express, { ErrorRequestHandler, Express } from 'express';
 import morgan from 'morgan';
 import { isDbConnected, ensureMongoConnection } from './config/db';
 import { corsMiddleware } from './config/cors';
@@ -18,6 +18,8 @@ import catalogRouter from './routes/catalog';
 export interface AppOptions {
   serveStatic?: boolean;
 }
+
+let ensureMongoGate: (() => Promise<unknown>) | null = null;
 
 export function createApp(options: AppOptions = {}): Express {
   const { serveStatic = false } = options;
@@ -80,6 +82,32 @@ export function createApp(options: AppOptions = {}): Express {
     });
   });
 
+  app.use('/api', async (req, res, next) => {
+    if (req.path === '/health' || req.path === '/health/') {
+      return next();
+    }
+
+    if (!ensureMongoGate) {
+      return next();
+    }
+
+    if (!isDbConnected()) {
+      try {
+        await ensureMongoGate();
+      } catch {
+        // Erro tratado na resposta 503 abaixo.
+      }
+    }
+
+    if (!isDbConnected()) {
+      return res.status(503).json({
+        error: 'Banco de dados indisponível. Verifique MONGODB_URI e Network Access 0.0.0.0/0 no Atlas.',
+      });
+    }
+
+    next();
+  });
+
   app.use('/api/categories', categoriesRouter);
   app.use('/api/products', productsRouter);
   app.use('/api/stock', stockRouter);
@@ -116,26 +144,6 @@ export function createApp(options: AppOptions = {}): Express {
 }
 
 /** Middleware de banco — igual ERP-Dantas */
-export function registerDbGate(app: Express, ensureMongo: () => Promise<unknown>) {
-  app.use('/api', async (req: Request, res: Response, next: NextFunction) => {
-    if (req.path === '/health' || req.path === '/health/') {
-      return next();
-    }
-
-    if (!isDbConnected()) {
-      try {
-        await ensureMongo();
-      } catch {
-        // tratado abaixo
-      }
-    }
-
-    if (!isDbConnected()) {
-      return res.status(503).json({
-        error: 'Banco de dados indisponível. Verifique MONGODB_URI e Network Access 0.0.0.0/0 no Atlas.',
-      });
-    }
-
-    next();
-  });
+export function registerDbGate(_app: Express, ensureMongo: () => Promise<unknown>) {
+  ensureMongoGate = ensureMongo;
 }
